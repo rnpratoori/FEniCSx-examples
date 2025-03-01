@@ -1,4 +1,9 @@
 out*
 results*
 .vscode
-*.py
+demo_poisson.py
+poisson.py
+poisson.ipynb
+diffusion_code.ipynb
+__pycache__
+*gif
