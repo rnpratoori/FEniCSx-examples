@@ -13,7 +13,7 @@ from pathlib import Path
 # Define simulation parameters
 lambda_ = 1.0e-2
 dt = 5.0e-06
-T = 1.0e-03 # End time
+T = 1.0e-04 # End time
 num_steps = T / dt # Number of time steps
 
 # Create mesh
@@ -39,7 +39,7 @@ def mapping(x):
     values[1] += i_y(x) * (L_max[1] - L_min[1])
     return values
 
-domain, replaced_vertices, replacement_map = create_periodic_mesh(domain, indicator, mapping)
+# domain, replaced_vertices, replacement_map = create_periodic_mesh(domain, indicator, mapping)
 fdim = domain.topology.dim - 1
 domain.topology.create_entities(fdim)
 # Identify the facets on the left and right boundaries
@@ -92,25 +92,23 @@ sys = PETSc.Sys()
 opts[f"{option_prefix}pc_factor_mat_solver_type"] = "superlu_dist"
 ksp.setFromOptions()
 
+# # Get the sub-space for c
+# V0, dofs = ME.sub(0).collapse()
+
 # Post-process
 # Save solution to file
 t = 0.0
 results_folder = Path("results")
 results_folder.mkdir(exist_ok=True, parents=True)
-filename = results_folder / "out_ch2p_pbc"
-with io.XDMFFile(domain.comm, filename.with_suffix(".xdmf"), "w", io.XDMFFile.Encoding.HDF5) as xdmf:
-    xdmf.write_mesh(domain)
-# Get the sub-space for c
-V0, dofs = ME.sub(0).collapse()
-
-# Time-stepping
-c = u.sub(0)
-u0.x.array[:] = u.x.array
-while t < T:
-    t += dt
-    r = solver.solve(u)
-    print(f"Step {int(t / dt)}: num iterations: {r[0]}")
+filename = results_folder / "out_ch2p_pbc.bp"
+with io.VTXWriter(domain.comm, filename, [u.sub(0)], engine="BP4") as vtx:
+    vtx.write(t)
+    # Time-stepping
+    c = u.sub(0)
     u0.x.array[:] = u.x.array
-    xdmf.write_function(c, t)
-xdmf.close()
-
+    while t < T:
+        t += dt
+        r = solver.solve(u)
+        print(f"Step {int(t / dt)}: num iterations: {r[0]}")
+        u0.x.array[:] = u.x.array
+        vtx.write(t)

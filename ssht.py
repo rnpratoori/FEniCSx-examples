@@ -1,10 +1,9 @@
 # Import Libraries
 from mpi4py import MPI
-from dolfinx import mesh, fem, default_scalar_type, plot, io
+from dolfinx import mesh, fem, default_scalar_type, io
 import numpy as np
 import ufl
 from dolfinx.fem.petsc import LinearProblem
-import pyvista
 from pathlib import Path
 
 # Create mesh
@@ -40,10 +39,6 @@ uh = problem.solve()
 # Save solution to file
 results_folder = Path("results")
 results_folder.mkdir(exist_ok=True, parents=True)
-filename = results_folder / "out_ssht"
-with io.VTXWriter(domain.comm, filename.with_suffix(".bp"), [uh]) as vtx:
+filename = results_folder / "out_ssht.bp"
+with io.VTXWriter(domain.comm, filename, [uh], engine="BP4") as vtx:
     vtx.write(0.0)
-with io.XDMFFile(domain.comm, filename.with_suffix(".xdmf"), "w") as xdmf:
-    xdmf.write_mesh(domain)
-    xdmf.write_function(uh)
-

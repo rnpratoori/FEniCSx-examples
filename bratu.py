@@ -61,8 +61,6 @@ else:
 # Save solution to file
 results_folder = Path("results")
 results_folder.mkdir(exist_ok=True, parents=True)
-filename = results_folder / "out_bratu"
-with io.XDMFFile(domain.comm, filename.with_suffix(".xdmf"), "w", io.XDMFFile.Encoding.ASCII) as xdmf:
-    xdmf.write_mesh(domain)
-    xdmf.write_function(u)
-
+filename = results_folder / "out_bratu.bp"
+with io.VTXWriter(domain.comm, filename, [u], engine="BP4") as vtx:
+    vtx.write(0.0)
