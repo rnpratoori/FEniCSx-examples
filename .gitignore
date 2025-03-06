@@ -3,7 +3,7 @@ results*
 .vscode
 demo_poisson.py
 poisson.py
-poisson.ipynb
-diffusion_code.ipynb
+*.ipynb
 __pycache__
 *gif
+*png
