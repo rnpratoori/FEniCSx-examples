@@ -13,7 +13,7 @@ from pathlib import Path
 # Define simulation parameters
 lambda_ = 1.0e-2
 dt = 5.0e-06
-T = 1.0e-04 # End time
+T = 1.0e-03 # End time
 num_steps = T / dt # Number of time steps
 
 # Create mesh

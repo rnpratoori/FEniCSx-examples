@@ -33,10 +33,10 @@ q_ufl = q_ex(ufl)
 
 
 # Solve Cahn-Hilliard equation
-def solve_ch(N=96, num_steps=2e5):
+def solve_ch(N=96, num_steps=200):
     t = 0.0
     t_n = 0.0 # Previous time
-    T = 1.0e-4
+    T = 1.0e-3
     dt = T / num_steps
 
     # Create mesh
@@ -132,7 +132,7 @@ def compute_errors(u_h, u_ex):
     return l2_error_c, l2_error_mu
 
 # Error convergence for mesh refinement
-N_values = [2**i for i in range(3, 8)]
+N_values = [2**i for i in range(3, 10)]
 Errors_c = np.zeros(len(N_values), dtype=default_scalar_type)
 Errors_mu = np.zeros(len(N_values), dtype=default_scalar_type)
 h_values = np.zeros(len(N_values), dtype=np.float64)
