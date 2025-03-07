@@ -33,7 +33,7 @@ q_ufl = q_ex(ufl)
 
 
 # Solve Cahn-Hilliard equation
-def solve_ch(N=96, num_steps=100):
+def solve_ch(N=96, num_steps=1e5):
     t = 0.0
     t_n = 0.0 # Previous time
     T = 1.0e-4
@@ -76,7 +76,7 @@ def solve_ch(N=96, num_steps=100):
     log.set_log_level(log.LogLevel.INFO)
 
     # Time stepping
-    for _ in range(num_steps):
+    for _ in range(int(num_steps)):
         t += dt
 
         # Update source term
@@ -159,7 +159,7 @@ if MPI.COMM_WORLD.rank == 0:
     plt.savefig('ch_err.png')
 
 # Error convergence for time refinement
-num_steps_values = [2**i for i in range(3, 8)]
+num_steps_values = [2**i * 1e4 for i in range(3, 8)]
 t_Errors_c = np.zeros(len(num_steps_values), dtype=default_scalar_type)
 t_Errors_mu = np.zeros(len(num_steps_values), dtype=default_scalar_type)
 dt_values = np.zeros(len(num_steps_values), dtype=np.float64)
