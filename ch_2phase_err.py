@@ -33,7 +33,7 @@ q_ufl = q_ex(ufl)
 
 
 # Solve Cahn-Hilliard equation
-def solve_ch(N=96, num_steps=1e5):
+def solve_ch(N=96, num_steps=2e5):
     t = 0.0
     t_n = 0.0 # Previous time
     T = 1.0e-4
