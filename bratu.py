@@ -41,8 +41,8 @@ problem = NonlinearProblem(F, u, [bc], J)
 # Create Newton Solver
 solver = NewtonSolver(domain.comm, problem)
 # Set solver options
-solver.atol = 1e-8
-solver.rtol = 1e-7
+solver.atol = 1e-10
+solver.rtol = 1e-10
 solver.max_it = 50
 
 # Solve nonlinear problem
