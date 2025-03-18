@@ -42,8 +42,10 @@ def mapping(x):
 # domain, replaced_vertices, replacement_map = create_periodic_mesh(domain, indicator, mapping)
 fdim = domain.topology.dim - 1
 domain.topology.create_entities(fdim)
-# Identify the facets on the left and right boundaries
-facets = mesh.locate_entities_boundary(domain, fdim, lambda x: np.full(x.shape[1], True, dtype=bool))
+domain, replaced_vertices, replacement_map = create_periodic_mesh(domain, indicator, mapping)
+domain.topology.create_entities(fdim)
+# Locate facets for boundary conditions and create meshtags
+domain.topology.create_connectivity(fdim, fdim + 1)
 
 # Create FunctionSpace
 P1 = element("Lagrange", domain.basix_cell(), 1, dtype=default_real_type)
@@ -79,7 +81,7 @@ F = F0 + F1
 problem = NonlinearProblem(F, u)
 
 # Create Newton Solver
-log.set_log_level(log.LogLevel.INFO)
+# log.set_log_level(log.LogLevel.INFO)
 solver = NewtonSolver(domain.comm, problem)
 solver.convergence_criterion = "incremental"
 solver.rtol = 1.0e-6
@@ -91,9 +93,6 @@ opts[f"{option_prefix}pc_type"] = "lu"
 sys = PETSc.Sys()
 opts[f"{option_prefix}pc_factor_mat_solver_type"] = "superlu_dist"
 ksp.setFromOptions()
-
-# # Get the sub-space for c
-# V0, dofs = ME.sub(0).collapse()
 
 # Post-process
 # Save solution to file
