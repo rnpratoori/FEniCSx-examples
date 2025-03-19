@@ -51,8 +51,8 @@ def solve_bratu(N):
     # Create Nonlinear Problem
     problem = NonlinearProblem(F, u, [bc], J)
     solver = NewtonSolver(domain.comm, problem)
-    solver.atol = 1e-8
-    solver.rtol = 1e-7
+    solver.atol = 1e-10
+    solver.rtol = 1e-10
     solver.max_it = 50
     solver.solve(u)
     
@@ -62,17 +62,52 @@ def solve_bratu(N):
 
     return u, u_exact
 
+# Define function to compute error at a higher degree
+def error_L2(uh, u_ex, degree_raise=3):
+    # Create higher order function space
+    degree = uh.function_space.ufl_element().degree
+    family = uh.function_space.ufl_element().family_name
+    mesh = uh.function_space.mesh
+    W = fem.functionspace(mesh, (family, degree + degree_raise))
+    # Interpolate approximate solution
+    u_W = fem.Function(W)
+    u_W.interpolate(uh)
+
+    # Interpolate exact solution, special handling if exact solution
+    # is a ufl expression or a python lambda function
+    u_ex_W = fem.Function(W)
+    if isinstance(u_ex, ufl.core.expr.Expr):
+        u_expr = fem.Expression(u_ex, W.element.interpolation_points())
+        u_ex_W.interpolate(u_expr)
+    else:
+        u_ex_W.interpolate(u_ex)
+
+    # Compute the error in the higher order function space
+    e_W = fem.Function(W)
+    e_W.x.array[:] = u_W.x.array - u_ex_W.x.array
+
+    # Integrate the error
+    error = fem.form(ufl.inner(e_W, e_W) * ufl.dx)
+    error_local = fem.assemble_scalar(error)
+    error_global = mesh.comm.allreduce(error_local, op=MPI.SUM)
+    return np.sqrt(error_global)
+
 # Solve problem for different mesh resolutions and compute errors
-N_values = [2**i for i in range(3, 10)]
+N_values = [2**i for i in range(2, 10)]
 Errors = np.zeros(len(N_values), dtype=default_scalar_type)
 h_values = np.zeros(len(N_values), dtype=np.float64)
 
 for i, N in enumerate(N_values):
     u_h, u_ex = solve_bratu(N)
     comm = u_h.function_space.mesh.comm
-    error = fem.form((u_h - u_ex)**2 * ufl.dx)
-    Errors[i] = np.sqrt(comm.allreduce(fem.assemble_scalar(error), MPI.SUM))
+    # error = fem.form((u_h - u_ex)**2 * ufl.dx)
+    Errors[i] = error_L2(u_h, u_numpy)
     h_values[i] = 1 / N_values[i]
+    if comm.rank == 0:
+        print(f"h: {h_values[i]:.2e} Error: {Errors[i]:.2e}")
+rates = np.log(Errors[1:] / Errors[:-1]) / np.log(h_values[1:] / h_values[:-1])
+if comm.rank == 0:
+    print(f"Polynomial degree 1, Rates {rates}")
 
 # Generate convergence plot
 if MPI.COMM_WORLD.rank == 0:
@@ -86,5 +121,5 @@ if MPI.COMM_WORLD.rank == 0:
     plt.ylabel('L2 Error')
     plt.legend()
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.title('Error Convergence')
+    plt.title('Error Convergence - Bratu')
     plt.savefig('bratu_err.png')
