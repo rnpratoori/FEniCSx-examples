@@ -1,7 +1,7 @@
 out*
 results*
 .vscode
-demo_poisson.py
+demo*
 poisson.py
 *.ipynb
 __pycache__
