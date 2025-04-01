@@ -19,7 +19,7 @@ if MPI.COMM_WORLD.rank == 0:
     print("0")
 
 # Create mesh
-domain = mesh.create_unit_square(MPI.COMM_WORLD, 100, 100, cell_type=mesh.CellType.triangle)
+domain = mesh.create_unit_square(MPI.COMM_WORLD, 200, 200, cell_type=mesh.CellType.triangle)
 
 if domain.comm.rank == 0:
     print("1")
@@ -55,7 +55,7 @@ domain.topology.create_entities(fdim)
 domain.topology.create_connectivity(fdim, fdim + 1)
 if domain.comm.rank == 0:
     print("3")
-    
+
 # Create FunctionSpace
 P1 = element("Lagrange", domain.basix_cell(), 1, dtype=default_real_type)
 ME = fem.functionspace(domain, mixed_element([P1, P1]))
