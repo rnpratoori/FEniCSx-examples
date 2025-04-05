@@ -21,6 +21,7 @@ u_ufl = u_ex(ufl)
 
 # Define function to create different problem instances for different meshes
 def solve_tdht(N=200, num_steps=100):
+    print(f'Running simulation for N = {N} and num_steps = {num_steps}')
     # Define time parameters
     t = 0.0  # Start time
     t_n = 0.0 # Previous time

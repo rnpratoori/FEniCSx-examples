@@ -204,7 +204,7 @@ if MPI.COMM_WORLD.rank == 0:
     plt.ylabel('L2 Error')
     plt.legend()
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.title('Cahn-Hilliard Error Convergence')
+    plt.title('Error Convergence - Cahn-Hilliard')
     plt.savefig('ch_err.png')
 
 # # Error convergence for time refinement
