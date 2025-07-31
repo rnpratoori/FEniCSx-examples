@@ -1,44 +1,82 @@
-# Import Libraries
-from mpi4py import MPI
-from dolfinx import mesh, fem, default_scalar_type, io
-import numpy as np
-import ufl
-from dolfinx.fem.petsc import LinearProblem
-from pathlib import Path
+import jax
+import jax.numpy as np
+import os
+import matplotlib.pyplot as plt
+import logging
 
-# Create mesh
-domain = mesh.create_rectangle(MPI.COMM_WORLD, ((0.0, 0.0), (2.0, 1.0)), (20, 10), cell_type=mesh.CellType.quadrilateral)
+# Set logging level to WARNING to suppress both DEBUG and INFO messages
+logging.getLogger('jax_fem').setLevel(logging.WARNING)
 
-# Create FunctionSpace
-V = fem.functionspace(domain, ("Lagrange", 1))
+from jax_fem.problem import Problem
+from jax_fem.solver import solver
+from jax_fem.utils import save_sol
+from jax_fem.generate_mesh import get_meshio_cell_type, Mesh, rectangle_mesh
 
-# Apply Dirichlet BCs
-# Identify the facets on the left and right boundaries
-facets = mesh.locate_entities_boundary(domain, domain.topology.dim - 1, lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], 2.0))
-# Locate DoFs on the facets
-dofs_boundary = fem.locate_dofs_topological(V, domain.topology.dim - 1, facets)
-# Create Dirichlet BCs
-bc = fem.dirichletbc(default_scalar_type(0.0), dofs_boundary, V)
+class ssht(Problem):
+    def get_tensor_map(self):
+        return lambda x: x
+    
+    def get_mass_map(self):
+        def mass_map(u, x):
+            val = -np.array([(2 * np.pi**2) * np.sin(np.pi * x[0]) * np.sin(np.pi * x[1])])
+            return val
+        return mass_map
 
-# Define variational problem
-# Define trial and test functions
-u = ufl.TrialFunction(V)
-v = ufl.TestFunction(V)
-# Define source function
-x = ufl.SpatialCoordinate(domain)
-f = 10.0 * ufl.exp(- ((x[0] - 0.5)**2 + (x[1] - 0.5)**2) / 0.02)
-# Define variational form
-a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-L = ufl.inner(f, v) * ufl.dx
+# Define exact solution for error computation
+def exact_solution(point):
+    return np.sin(np.pi * point[0]) * np.sin(np.pi * point[1])
 
-# Solve variational problem
-problem = LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
-uh = problem.solve()
+def compute_l2_error(mesh, numerical_sol):
+    errors = np.array([(numerical_sol[i] - exact_solution(point))**2 for i, point in enumerate(mesh.points)])
+    return np.sqrt(np.sum(errors) / len(mesh.points))
 
-# Post-process
-# Save solution to file
-results_folder = Path("results")
-results_folder.mkdir(exist_ok=True, parents=True)
-filename = results_folder / "out_ssht.bp"
-with io.VTXWriter(domain.comm, filename, [uh], engine="BP4") as vtx:
-    vtx.write(0.0)
+# Mesh refinement study
+elements = [16, 32, 64, 128, 256, 512]
+dh = np.array([1 / i for i in elements])  # Convert to numpy array
+errors = []
+
+for Nx in elements:
+    Ny = Nx
+    ele_type = 'QUAD4'
+    cell_type = get_meshio_cell_type(ele_type)
+    Lx, Ly = 1., 1.
+    meshio_mesh = rectangle_mesh(Nx=Nx, Ny=Ny, domain_x=Lx, domain_y=Ly)
+    mesh = Mesh(meshio_mesh.points, meshio_mesh.cells_dict[cell_type])
+    
+    # Define boundaries
+    def left(point): return np.isclose(point[0], 0., atol=1e-5)
+    def right(point): return np.isclose(point[0], Lx, atol=1e-5)
+    def bottom(point): return np.isclose(point[1], 0., atol=1e-5)
+    def top(point): return np.isclose(point[1], Ly, atol=1e-5)
+    
+    def dirichlet_val(point): return exact_solution(point)
+    
+    dirichlet_bc_info = [[left, right, bottom, top], [0, 0, 0, 0], [dirichlet_val, dirichlet_val, dirichlet_val, dirichlet_val]]
+    problem = ssht(mesh=mesh, vec=1, dim=2, ele_type=ele_type, dirichlet_bc_info=dirichlet_bc_info)
+    
+    sol = solver(problem)
+    error = compute_l2_error(mesh, sol[0])
+    errors.append(error)
+    print(f'Mesh {Nx}x{Ny}: L2 Error = {error:.6f}')
+
+# Plot error convergence
+plt.figure(figsize=(8, 6))
+plt.loglog(dh, errors, label="Computed Error", marker='o', linestyle='-', color='b')
+plt.loglog(dh, errors[0] * (dh / dh[0])**(2), '--', label="O(h^2)", color='r')
+plt.xlabel('Mesh Size (h)')
+plt.ylabel('L2 Error')
+plt.title('Error Convergence - Steady state heat')
+plt.legend()
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.savefig(os.path.join(os.path.dirname(__file__), 'error_convergence_plot.png'))
+plt.show()
+
+# Save error convergence data
+data_dir = os.path.join(os.path.dirname(__file__), 'data')
+os.makedirs(data_dir, exist_ok=True)
+error_file = os.path.join(data_dir, 'ssht_err.txt')
+with open(error_file, 'w') as f:
+    for dh, error in zip(elements, errors):
+        f.write(f'{dh} {error}\n')
+
+print("Error convergence study completed. Data saved to", error_file)
